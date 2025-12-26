@@ -1,0 +1,79 @@
+---
+
+- name: "{{ current_domain.domain }} | Remove www zone DNS records for added subdomains"
+  uri:
+  vars:
+    api_method: dns/changeRecords
+    fqdn: "www.{{ item }}.{{ current_domain.domain }}"
+    body:
+      input_format: json
+      input_data: "{{ input_data | to_json }}"
+    input_data:
+      fqdn: "{{ fqdn }}"
+      records: {}
+  changed_when: true
+  register: result_dns_records
+  failed_when: (result_dns_records.content | from_json).answer.status != 'success'
+  # skip subdomains starting with www
+  loop: "{{ subdomains_to_add | reject('match', 'www.') }}"
+  loop_control:
+    label: "{{ fqdn }}"
+
+- name: "{{ current_domain.domain }} | Remove DNS records for deleted subdomains"
+  uri:
+  vars:
+    api_method: dns/changeRecords
+    body:
+      input_format: json
+      input_data: "{{ input_data | to_json }}"
+    input_data:
+      fqdn: "{{ item.fqdn }}"
+      records: {}
+  changed_when: true
+  register: result_dns_records
+  failed_when: (result_dns_records.content | from_json).answer.status != 'success'
+  loop: "{{ subdomains_to_remove }}"
+  loop_control:
+    label: "{{ item.fqdn }}"
+
+- name: "{{ current_domain.domain }} | Query DNS records"
+  uri:
+  vars:
+    api_method: dns/getData
+    # append domain to subdomain, replace @ with domain if necessary
+    fqdn: "{{ item.subdomain | regex_replace('$', '.' ~ current_domain.domain) | replace('@' ~ '.' ~ current_domain.domain, current_domain.domain) }}"
+    input_data:
+      fqdn: "{{ fqdn }}"
+    body:
+      input_format: json
+      input_data: "{{ input_data | to_json }}"
+  register: result_dns_records_existing
+  failed_when:
+    - (result_dns_records_existing.content | from_json).answer.status != 'success'
+    - item.subdomain|d('') != 'www'   # query of 'auto' www record always fails (an api quirk they don't want fixed)
+  check_mode: false
+  loop: "{{ current_domain.subdomains | selectattr('subdomain', 'defined') | unique(attribute='subdomain') }}"
+  loop_control:
+    label: "{{ fqdn }}"
+
+- name: "{{ current_domain.domain }} | Rewrite DNS records"
+  uri:
+  vars:
+    target_dns_records: "{{ current_domain.subdomains | allixx.beget.private_dns_to_beget(item.item.subdomain) }}"
+    target_dns_records_values: "{{ target_dns_records | dict2items | map(attribute='value') | flatten }}"
+    existing_dns_records_values: "{{ (item.content | from_json).answer.result.records | d({}) | allixx.beget.beget_dns_get_to_change | dict2items | map(attribute='value') | flatten }}"
+    fqdn: "{{ item.item.subdomain | regex_replace('$', '.' ~ current_domain.domain) | replace('@' ~ '.' ~ current_domain.domain, current_domain.domain) }}"
+    api_method: dns/changeRecords
+    body:
+      input_format: json
+      input_data: "{{ input_data | to_json }}"
+    input_data:
+      fqdn: "{{ fqdn }}"
+      records: "{{ target_dns_records }}"
+  when: existing_dns_records_values | symmetric_difference(target_dns_records_values) | length > 0
+  loop: "{{ result_dns_records_existing.results }}"
+  loop_control:
+    label: "{{ fqdn }}"
+  register: result_dns_records
+  failed_when: (result_dns_records.content | from_json).answer.status != 'success'
+  changed_when: not fqdn.startswith("www.")   # those are always rewritten

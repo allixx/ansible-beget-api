@@ -1,0 +1,70 @@
+---
+
+- delegate_to: localhost
+  vars:
+    current_domain_id: "{{ (result_all_domains.content | from_json).answer.result | selectattr('fqdn', 'eq', current_domain.domain) | map(attribute='id') | first }}"
+    body_common:
+      login: "{{ beget_api_login | mandatory }}"
+      passwd: "{{ beget_api_password | mandatory }}"
+      output_format: json
+    all_subdomains: "{{ (result_all_subdomains.content | from_json).answer.result | selectattr('domain_id', 'eq', current_domain_id) }}"
+    existing_subdomains: "{{ all_subdomains | map(attribute='fqdn') | sort }}"
+    new_subdomains: "{{ current_domain.subdomains | selectattr('subdomain', 'defined') | map(attribute='subdomain') | reject('eq', '@') | map('regex_replace', '$', '.' ~ current_domain.domain)  | unique | sort }}"
+    subdomains_to_remove: "{{ all_subdomains | selectattr('fqdn', 'in', existing_subdomains | difference(new_subdomains) ) }}"
+    subdomains_to_add: "{{ new_subdomains | difference(existing_subdomains) | map('regex_replace', '\\.' ~ current_domain.domain ~ '$', '') | reject('in', beget_api_ignore_subdomains) }}"
+  module_defaults:
+    uri:
+      method: POST
+      body_format: form-urlencoded
+      url: "{{ beget_api_url }}/{{ api_method }}"
+      body: "{{ body_common | combine(body|default({})) }}"
+      return_content: true
+  tags:
+    - beget-api
+  block:
+    - name: "{{ current_domain.domain }} | Get all domains"
+      uri:
+      vars:
+        api_method: domain/getList
+      register: result_all_domains
+      failed_when: (result_all_domains.content | from_json).answer.status != 'success'
+      check_mode: false
+
+    - name: "{{ current_domain.domain }} | Get all subdomains"
+      uri:
+      vars:
+        api_method: domain/getSubdomainList
+      register: result_all_subdomains
+      failed_when: (result_all_subdomains.content | from_json).answer.status != 'success'
+      check_mode: false
+
+    - name: "{{ current_domain.domain }} | Remove obsolete subdomains"
+      uri:
+      vars:
+        api_method: domain/deleteSubdomain
+        body:
+          input_format: json
+          input_data: "{{ input_data | to_json }}"
+        input_data:
+          id: "{{ item.id }}"
+      changed_when: true
+      loop: "{{ subdomains_to_remove }}"
+      loop_control:
+        label: "{{ item.fqdn }}"
+
+    - name: "{{ current_domain.domain }} | Add missing subdomains"
+      uri:
+      vars:
+        api_method: domain/addSubdomainVirtual
+        body:
+          input_format: json
+          input_data: "{{ input_data | to_json }}"
+        input_data:
+          subdomain: "{{ item }}"
+          domain_id: "{{ current_domain_id }}"
+      changed_when: true
+      loop: "{{ subdomains_to_add }}"
+      loop_control:
+        label: "{{ item }}.{{ current_domain.domain }}"
+
+    - import_tasks: dns.yml

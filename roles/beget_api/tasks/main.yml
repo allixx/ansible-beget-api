@@ -1,0 +1,11 @@
+---
+
+- name: Process domains and dns
+  include_tasks:
+    file: domains.yml
+  loop: "{{ beget_api_domains_and_dns | rejectattr('domain', 'ansible.utils.ip')  }}"
+  loop_control:
+    loop_var: current_domain
+    label: "{{ current_domain.domain }}"
+  tags:
+    - beget-api

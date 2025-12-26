@@ -1,0 +1,22 @@
+---
+
+DOCUMENTATION:
+  name: private_dns_to_beget
+  short_description: Converts private dns data to Beget DNS API dns/changeRecords format
+  description:
+    - Converts dns private data structure (verify_dns, beget_api) to format acceptable by Beget API dns/changeRecords.
+  positional: _input, subdomain
+  options:
+    _input:
+      description: List of dicts describing subdomains and DNS records.
+      type: list
+      required: true
+    subdomain:
+      description: (Sub)domain name to generate DNS records for.
+      type: string
+      required: true
+
+RETURN:
+  _value:
+    description: Dict of lists describing dns records in dns/changeRecords acceptable format.
+    type: dict

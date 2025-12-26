@@ -1,0 +1,37 @@
+---
+
+# Manages subdomains and DNS records using Beget domains and DNS API
+
+# Input variable lists domains and their DNS records as query and expected response
+# verify_dna role uses the same syntax
+
+beget_api_domains_and_dns: []
+#  - domain: domain.com
+#    subdomains:
+#      - subdomain: "@"                  # domain.com is used here
+#        records:
+#          - type: A
+#            value: 1.2.3.4              # single value is accepted
+#          - type: MX
+#            value: 10 mail.domain.com.  # note trailing dot is required
+#      - subdomain: mail                 # mail.domain.com is used here
+#        records:
+#          - type: A
+#            value:                      # list is accepted as well
+#              - 1.2.3.4
+#              - 5.6.7.8
+#      - subdomain: test
+#        records:
+#          - type: CNAME
+#            value: domain.com.          # Note trailing dot is required
+# ...
+
+beget_api_url: https://api.beget.com/api
+# API credentials must have the rights to manage domains and DNS records
+beget_api_login: "{{ undef(hint='API login is mandatory') }}"
+beget_api_password: "{{ undef(hint='API password is mandatory') }}"
+
+# www subdomaisn are created transparently by Beget
+# and must be ignored
+beget_api_ignore_subdomains:
+  - www

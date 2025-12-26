@@ -1,0 +1,20 @@
+---
+
+- block:
+    - name: Verify that DNS resolution doesn't fail with concealed message
+      debug:
+        msg: "{{ lookup('community.general.dig', 'google.com') }}"
+
+    - name: Verify DNS records
+      debug:
+        msg: "{{ (item.record.value | truncate(32)) }}"
+      failed_when: dns_query | sort != [item.record.value] | flatten
+      loop: "{{ verify_dns | allixx.beget.walk_private_dns }}"
+      loop_control:
+        label: "{{ item.record.type }} {{ hostname }}"
+      vars:
+        hostname: "{{ (item.subdomain == '@') | ternary('', item.subdomain ~ '.') ~ item.domain }}"
+        dns_query: "{{ query('community.general.dig', hostname, 'qtype=' ~ item.record.type, fail_on_error=False) }}"
+      register: result
+  tags:
+    - verify-dns
