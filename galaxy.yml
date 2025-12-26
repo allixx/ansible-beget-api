@@ -1,0 +1,14 @@
+---
+
+namespace: allixx
+name: beget
+version: 0.0.1
+readme: README.md
+authors:
+  - allixx
+description: Manage domains and DNS records using Beget API
+repository: https://github.com/allixx/ansible-beget-api.git
+issues: https://github.com/allixx/ansible-beget-api/issues
+dependencies:
+  ansible.utils: "*"
+  community.general: "*"

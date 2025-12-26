@@ -1,0 +1,11 @@
+---
+
+# DNS records verifier
+
+# Supported query types:
+# https://docs.ansible.com/projects/ansible/latest/collections/community/general/dig_lookup.html#parameter-qtype
+
+# Input variable lists domains and their DNS records as query and expected response.
+# beget_api role uses the same syntax
+
+verify_dns: []

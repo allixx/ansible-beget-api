@@ -1,0 +1,18 @@
+---
+
+DOCUMENTATION:
+  name: beget_dns_get_to_change
+  short_description: Convert Beget DNS API /getData records to /changeRecords format
+  description:
+    - Converts Beget DNS API dns/getData dns records to format acceptabie by dns/changeRecords.
+  positional: _input
+  options:
+    _input:
+      description: Dict of lists describing dns records, keyed by DNS record type.
+      type: dict
+      required: true
+
+RETURN:
+  _value:
+    description: Dict of lists describing dns records in dns/changeRecords format.
+    type: dict

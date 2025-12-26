@@ -1,0 +1,19 @@
+---
+
+- block:
+    - name: Verify that dns resolution doesn't fail with concealed message
+      debug:
+        msg: "{{ lookup('community.general.dig', 'google.com') }}"
+
+    - name: Verify dns records
+      debug:
+        msg: "{{ item.1.value | truncate(64) }}"
+      failed_when: dns_query | sort != [item.1.value] | flatten
+      loop: "{{ verify_dns | subelements('records') }}"
+      loop_control:
+        label: "{{ item.1.type }} {{ hostname }}"
+      vars:
+        hostname: "{{ (item.1.subdomain == '@') | ternary('', item.1.subdomain ~ '.') ~ item.0.domain }}"
+        dns_query: "{{ query('community.general.dig', hostname, 'qtype=' ~ item.1.type, fail_on_error=False) }}"
+  tags:
+    - verify-dns
